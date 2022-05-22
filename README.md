@@ -1,267 +1,186 @@
+package UI;
 
-package service;
-
+import Control.GameControl;
+import Control.PlayerControl;
+import config.FrameConfig;
+import config.GameConfig;
+import config.LaysConfig;
+import dao.DataDisk;
 import dto.GameDto;
-import dto.Player;
-import entity.GameAct;
+import service.GameService;
 
+import javax.swing.*;
 import java.awt.*;
-import java.util.Arrays;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.lang.reflect.Constructor;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
-//游戏逻辑
-public class GameService
+
+public class JPanelGame extends JPanel
 {
-    private Random random=new Random();
+    private static final int BTN_SIZE_W=GameConfig.getFrameConfig().getButtonConfig().getButtonW();
+    private static final int BTN_SIZE_H=GameConfig.getFrameConfig().getButtonConfig().getButtonH();
+    private static final int BTN_START_X=GameConfig.getFrameConfig().getButtonConfig().getStartX();
+    private static final int BTN_START_Y=GameConfig.getFrameConfig().getButtonConfig().getStartY();
+    private static final int BTN_SET_X=GameConfig.getFrameConfig().getButtonConfig().getUserConfigX();
+    private static final int BTN_SET_Y=GameConfig.getFrameConfig().getButtonConfig().getUserConfigY();
 
-    private static final int TYPE_RANGE=7;
+
+    private List<Lays> lays=null;
+
+    private GameDto dto=null;
+
+    private JButton btnStart;
+
+    private  JButton btnConfig;
+
+    private GameControl gameControl=null;
+
+    private DataDisk dataB=null;
+
+    private void initButton()
+    {
+        this.btnStart=new JButton("Start");
+        btnStart.setBounds(BTN_START_X,BTN_START_Y,BTN_SIZE_W,BTN_SIZE_H);
+        this.add(btnStart);
+
+        this.btnConfig=new JButton("Set");
+        btnConfig.setBounds(BTN_SET_X,BTN_SET_Y,BTN_SIZE_W,BTN_SIZE_H);
+        this.add(btnConfig);
+
+        this.btnStart.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                boolean[][] test=dataB.readArray();
+                if(test!=null)
+                    dto.setSaveStatus(true);
+                if(dto.isSaveStatus())
+                {
+
+                    JFrameIfLoad load=new JFrameIfLoad(gameControl,dto);
+                    load.setVisible(true);
+                }
+                else
+                gameControl.start();
+            }
+        });
 
 
-    private GameDto dto;
 
-    public GameService(GameDto dto)
+        this.btnConfig.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFrameSet frameSet=new JFrameSet(dto,gameControl);
+                frameSet.setVisible(true);
+                if(dto.isStart())
+                    gameControl.keyPause();
+            }
+        });
+
+    }
+
+    public JPanelGame(GameDto dto,GameControl gameControl,DataDisk dataB)
     {
         this.dto=dto;
-    }
+        this.setLayout(null);
+        this.gameControl=gameControl;
+        this.dataB=dataB;
+        this.initComponent(this.gameControl);
+        initLays();
+        initButton();
 
 
-
-    public boolean keyDown()
-    {
-
-        //判断移动是否成功
-        if(this.dto.getGameAct().move(0,1,this.dto.getGameMap()))
-        {
-            return false;
-        }
-        boolean[][] map=this.dto.getGameMap();
-        Point[] act=this.dto.getGameAct().getActPoint();
-        for(int i=0;i<this.dto.getGameAct().getActPoint().length;i++)
-        {
-            map[act[i].x][act[i].y]=true;
-        }
-
-        //是否消去 消去
-        this.dto.setGameMap(eraseCube(map,this.dto.getGameAct().getActPoint()));
-        this.dto.setRemoveLine(0);
-
-            //计算分数
-            //一定分数可以换个背景
-
-
-
-        //刷新新方块 7个一循环
-        //将下一个块生成
-        this.dto.getGameAct().init(this.dto.getNext());
-        this.dto.setNext(cubeCodeInit(this.dto.getCubeInitCycle(),random.nextInt(TYPE_RANGE)));
-
-        if(checkLose())
-        {
-            afterLose();
-        }
-        return true;
-
-    }
-
-    public void suddenFall()
-    {
-        while (!keyDown()) {}
-    }
-
-    private void afterLose()
-    {
-        //设置开始状态
-        this.dto.setStart(false);
-
-        //关闭主线程
-
-    }
-
-    public void keyLeft()
-    {
-        this.dto.getGameAct().move(-1,0,this.dto.getGameMap());
-    }
-
-    public void keyRight()
-    {
-        this.dto.getGameAct().move(1,0,this.dto.getGameMap());
-    }
-/*
-    public void keyASpin()
-    {
-        Point[] center=this.dto.getGameAct().getActPoint();
-            this.dto.getGameAct().spinLeft(center[0].x,center[0].y,this.dto.getGameMap());
-    }
-*/
-
-    public void keyXSpin()
-    {
-        synchronized (this.dto)
-        {
-            Point[] center=this.dto.getGameAct().getActPoint();
-            this.dto.getGameAct().spinRight(center[0].x,center[0].y,this.dto.getGameMap());
-        }
-
-    }
-
-    public void keyPause()
-    {
-        this.dto.setPause();
-    }
-
-/*
-    private boolean canMove(int moveX,int moveY)
-    {
-        Point[] nowPoints= this.dto.getGameAct().getActPoint();
-
-        for(int i=0;i<nowPoints.length;i++)
-        {
-            int newX=nowPoints[i].x+moveX;
-            int newY=nowPoints[i].y+moveY;
-            if(newX<0||newX>9||newY>17)
-                return false;
-        }
-        return true;
-    }
-
-*/
-
-
-    private int cubeCodeInit(boolean[] list, int code)
-    {
-        int index=0;
-        for(int i=0;i<list.length;i++)
-        {
-            if(list[i]==true)
-                index++;
-        }
-        if(index== list.length)
-        {
-            boolean[] re=new boolean[list.length];
-            this.dto.setCubeInitCycle(re);
-            return code;
-        }
-
-        if(list[code]==false)
-        {
-            list[code]=true;
-            this.dto.setCubeInitCycle(list);
-            return code;
-        }
-        else
-        {
-            return cubeCodeInit(list, random.nextInt(TYPE_RANGE));
-        }
-    }
-
-
-    private boolean[][] eraseCube(boolean[][] map,Point[] points)
-    {
-        int[] eraseRow=new int[points.length];
-        int rows=0;
-        for (int i=0;i< points.length;i++)
-        {
-            int index=0;
-            for (int j=0;j<10;j++)
-            {
-                if(map[j][points[i].y]==true)
-                    index++;
-            }
-            if(index==10)
-            {
-                eraseRow[i]=points[i].y;
-                rows++;
-            }
-
-        }
-        eraseRow=eraseRepeat(eraseRow,rows);
-        return reArrange(map,eraseRow);
-
-    }
-
-    private boolean[][] reArrange(boolean[][] map,int[] row)//消除行具体位置
-    {
-        Arrays.sort(row);
-        for (int i=0;i<row.length;i++)
-        {
-            if(row[i]!=0)
-            {
-                for(int j=row[i];j>0;j--)
+/*     硬编码
+        lays=new Lays[]
                 {
-                    for (int k=0;k<10;k++)
-                    {
-                        map[k][j]=map[k][j-1];
-                    }
-                }
-            }
-        }
-
-
-        return map;
+                        new LayBackground(0,0,0,0),
+                        new LayWindows(40,32,334,279),
+                        new LayWindows(40,343,334,279),
+                        new LayWindows(414,32,334,590),
+                        new LayWindows(778,32,334,124),
+                        new LayWindows(778,188,158,148),
+                        new LayWindows(964,188,158,148),
+                        new LayWindows(788,368,334,200)
+                };
+                */
     }
 
 
-    private int[] eraseRepeat(int[] array,int rows)
+    public void initLays()
     {
-        int com=-1;//比较数
-        int index=0;
-        for(int i=0;i<array.length;i++)
+        try
         {
-            if(array[i]!=com)
-                com=array[i];
-            else if(array[i]!=0)
+            FrameConfig fCFG=GameConfig.getFrameConfig();
+
+            //获得层配置
+            List<LaysConfig> laysConfig=fCFG.getLaysConfigs();
+            //创建所以层对象
+            lays=new ArrayList<Lays>(laysConfig.size());
+
+            for (LaysConfig laysConfig1:laysConfig)
             {
-                array[i]=0;
-                index++;
+                //获得类对象
+                Class<?> c= Class.forName((laysConfig1.getClassName()));
+                //获得构造函数
+                Constructor ctr= c.getConstructor(int.class,int.class,int.class,int.class);
+                //调用构造函数 创建对象
+                Lays l=(Lays) ctr.newInstance(
+                        laysConfig1.getX(),
+                        laysConfig1.getY(),
+                        laysConfig1.getW(),
+                        laysConfig1.getH()
+                );
+                //设置游戏数据对象
+                l.setDto(this.dto);
+                lays.add(l);
+
             }
 
         }
-
-        this.dto.setRemoveLine(rows-index);
-        this.dto.setTotalRemoveLine(this.dto.getTotalRemoveLine()+this.dto.getRemoveLine());
-        this.dto.setNowPoint(this.dto.getNowPoint()+this.dto.getRemoveLine()*500*this.dto.getRemoveLine());
-        if(this.dto.getStopTime()-this.dto.getTotalRemoveLine()*10>50)
-            this.dto.setStopTime(this.dto.getStopTime()-this.dto.getTotalRemoveLine()*10);
-
-        return array;
-    }
-
-    public boolean checkLose()
-    {
-        Point[] points=this.dto.getGameAct().getActPoint();
-
-        boolean[][] nowMap=this.dto.getGameMap();
-
-        for (int i=0;i< points.length;i++)
+        catch (Exception e)
         {
-            if(nowMap[points[i].x][points[i].y])
-                return true;
+            e.printStackTrace();
         }
-        return false;
     }
 
-
-    //测试用---------------------------------------------
-/*
-    public void setRecodeDataBase(List<Player> players)
+    public void buttonSwitch(boolean on)
     {
-        this.dto.setDbRecode(players);
-    }
-*/
-    public void setRecodeDisk(List<Player> players)
-    {
-        this.dto.setDiskRecode(players);
+        this.btnStart.setEnabled(on);
     }
 
-    public void start()
+
+
+    public void initComponent(GameControl gameControl)
     {
-        this.dto.setNext(cubeCodeInit(this.dto.getCubeInitCycle(),random.nextInt(TYPE_RANGE)));
-        GameAct act=new GameAct(cubeCodeInit(this.dto.getCubeInitCycle(),random.nextInt(TYPE_RANGE)));
-        dto.setGameAct(act);
-        this.dto.setStart(true);
-        //初始化
-        this.dto.dtoInit();
+        //创建游戏控制器
+        //控制 jpanel 与 game_service
+        this.addKeyListener(new PlayerControl(gameControl));
     }
 
+    //安装玩家控制器
+    public void setGameControl(PlayerControl control)
+    {
+        this.addKeyListener(control);
+    }
+
+
+        //画面板
+    @Override
+    public void paintComponent(Graphics g)
+    {
+        super.paintComponent(g);
+
+        for (int i=0;i<lays.size();i++)
+            lays.get(i).paint(g);
+        //保持焦点在panel上
+        this.requestFocus();
+
+    }
+
+    public void setGameControl(GameControl gameControl)
+    {
+        this.gameControl = gameControl;
+    }
 }
